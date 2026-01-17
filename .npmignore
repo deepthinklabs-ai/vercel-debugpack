@@ -1,0 +1,23 @@
+# Source files (dist is published)
+src/
+tsconfig.json
+tsup.config.ts
+
+# Tests
+test/
+
+# Development
+.github/
+.vscode/
+.idea/
+.claude/
+
+# Debug output
+debug-bundle/
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db
+coverage/
+nul
