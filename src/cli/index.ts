@@ -10,6 +10,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync, spawnSync } from 'child_process';
+import { startServer } from './server';
 
 // Types for parsed browser logs
 interface BrowserLogEntry {
@@ -500,6 +501,130 @@ export function main(): void {
       if (sessionId) {
         console.log(`\nTo filter Vercel logs by session, search for: debugSessionId=${sessionId}`);
       }
+    });
+
+  // Add init subcommand
+  program
+    .command('init')
+    .description('Initialize debugpack configuration for this project')
+    .action(async () => {
+      const configPath = path.join(process.cwd(), 'debugpack.config.json');
+      const readline = await import('readline');
+
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+
+      const question = (prompt: string): Promise<string> => {
+        return new Promise((resolve) => {
+          rl.question(prompt, (answer) => {
+            resolve(answer);
+          });
+        });
+      };
+
+      console.log('\n🔧 Debugpack Setup\n');
+      console.log(`Project directory: ${process.cwd()}\n`);
+
+      // Check for existing config
+      let existingConfig: { project?: string; out?: string } = {};
+      if (fs.existsSync(configPath)) {
+        try {
+          existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+          console.log('Found existing config. Press Enter to keep current values.\n');
+        } catch {
+          // Ignore parse errors
+        }
+      }
+
+      // Prompt for project name
+      const defaultProject = existingConfig.project || '';
+      const projectPrompt = defaultProject
+        ? `Vercel project name [${defaultProject}]: `
+        : 'Vercel project name: ';
+      const projectInput = await question(projectPrompt);
+      const project = projectInput.trim() || defaultProject;
+
+      // Prompt for output directory
+      const defaultOut = existingConfig.out || './debug-bundle';
+      const outInput = await question(`Output directory [${defaultOut}]: `);
+      const out = outInput.trim() || defaultOut;
+
+      rl.close();
+
+      // Save config
+      const config = { project, out };
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
+
+      // Ensure gitignore
+      const gitignorePath = path.join(process.cwd(), '.gitignore');
+      const outDirName = path.basename(out);
+      let gitignoreContent = '';
+
+      if (fs.existsSync(gitignorePath)) {
+        gitignoreContent = fs.readFileSync(gitignorePath, 'utf-8');
+      }
+
+      const entriesToAdd: string[] = [];
+      if (!gitignoreContent.includes('debugpack.config.json')) {
+        entriesToAdd.push('debugpack.config.json');
+      }
+      if (!gitignoreContent.includes(outDirName)) {
+        entriesToAdd.push(`${outDirName}/`);
+      }
+
+      if (entriesToAdd.length > 0) {
+        const addition = `\n# Debugpack\n${entriesToAdd.join('\n')}\n`;
+        fs.writeFileSync(gitignorePath, gitignoreContent.trimEnd() + addition);
+      }
+
+      console.log('\n✅ Configuration saved to debugpack.config.json');
+      console.log(`\nTo start debugging, run:\n`);
+      console.log(`  npx debugpack serve\n`);
+    });
+
+  // Add serve subcommand
+  program
+    .command('serve')
+    .description('Start local server for browser-initiated bundle creation')
+    .option('--port <number>', 'Server port', '3847')
+    .option('--out <dir>', 'Output directory for bundles')
+    .option('--project <name>', 'Vercel project name for log fetching')
+    .option('--minutes <n>', 'Minutes of Vercel logs to include', '15')
+    .action((options: {
+      port: string;
+      out?: string;
+      project?: string;
+      minutes: string;
+    }) => {
+      // Load config file if exists
+      const configPath = path.join(process.cwd(), 'debugpack.config.json');
+      let fileConfig: { project?: string; out?: string } = {};
+
+      if (fs.existsSync(configPath)) {
+        try {
+          fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+        } catch {
+          // Ignore parse errors
+        }
+      }
+
+      // CLI options override config file
+      const project = options.project || fileConfig.project;
+      const out = options.out || fileConfig.out || './debug-bundle';
+
+      if (!project) {
+        console.log('No Vercel project configured.');
+        console.log('Run "npx debugpack init" to set up, or use --project flag.\n');
+      }
+
+      startServer({
+        port: parseInt(options.port, 10),
+        outputDir: out,
+        projectName: project,
+        minutesBack: parseInt(options.minutes, 10),
+      });
     });
 
   program.parse();

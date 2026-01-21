@@ -34,11 +34,25 @@ export {
   getDebugCapture,
   isDebugModeActive,
   getDebugSessionId,
+  toggleDebugMode,
+  setupKeyboardShortcut,
+  isDebugKeyboardEnabled,
   type DebugCaptureAPI,
 } from './capture';
 
 // React component
 export { DebugPanel } from './DebugPanel';
+
+// Server client (for custom integrations)
+export {
+  probeServer,
+  refreshServerStatus,
+  clearServerStatusCache,
+  createBundleOnServer,
+  getDefaultServerUrl,
+  type ServerStatus,
+  type BundleResult,
+} from './serverClient';
 
 // Types
 export type {
@@ -46,6 +60,8 @@ export type {
   LogEntryMeta,
   DebugConfig,
   DebugPanelProps,
+  BundleStatus,
+  BundleSummary,
 } from './types';
 
 // Redaction utilities (for advanced use cases)

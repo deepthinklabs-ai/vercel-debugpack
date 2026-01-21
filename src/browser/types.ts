@@ -78,6 +78,13 @@ export interface DebugConfig {
    * @default true
    */
   onlyFetchFailures?: boolean;
+
+  /**
+   * Custom server URL for bundle creation.
+   * Used when connecting to the local debugpack server.
+   * @default 'http://localhost:3847'
+   */
+  serverUrl?: string;
 }
 
 /**
@@ -107,3 +114,21 @@ export interface DebugPanelProps {
   /** Position of the panel */
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
 }
+
+/**
+ * Summary info returned after a bundle is created.
+ */
+export interface BundleSummary {
+  browserLogCount: number;
+  vercelLogLines: number;
+  sessionId: string;
+}
+
+/**
+ * Status of bundle creation for UI feedback.
+ */
+export type BundleStatus =
+  | { state: 'idle' }
+  | { state: 'loading' }
+  | { state: 'success'; bundlePath: string; summary: BundleSummary }
+  | { state: 'error'; message: string };

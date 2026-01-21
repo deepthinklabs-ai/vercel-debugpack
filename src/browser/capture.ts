@@ -9,6 +9,12 @@ import { sanitizeUrl, truncateString, safeStringify, extractStack } from './reda
 // Global state - singleton pattern for browser environment
 let state: DebugCaptureState | null = null;
 
+/** Storage key for keyboard-activated debug mode */
+const DEBUG_KEYBOARD_KEY = 'vercel-debugpack-keyboard-enabled';
+
+/** Flag to prevent multiple keyboard shortcut listeners */
+let keyboardShortcutSetup = false;
+
 /**
  * Generate a UUID v4 for debug session identification.
  */
@@ -53,10 +59,29 @@ function getOrCreateSessionId(): string {
 }
 
 /**
- * Default check for whether debug mode should be enabled.
- * Requires VERCEL_ENV === 'preview' AND ?debug=1 in URL.
+ * Check if debug was enabled via keyboard shortcut.
  */
-function defaultIsEnabled(): boolean {
+function isKeyboardEnabled(): boolean {
+  if (typeof sessionStorage === 'undefined') return false;
+  return sessionStorage.getItem(DEBUG_KEYBOARD_KEY) === 'true';
+}
+
+/**
+ * Set keyboard-enabled state.
+ */
+function setKeyboardEnabled(enabled: boolean): void {
+  if (typeof sessionStorage === 'undefined') return;
+  if (enabled) {
+    sessionStorage.setItem(DEBUG_KEYBOARD_KEY, 'true');
+  } else {
+    sessionStorage.removeItem(DEBUG_KEYBOARD_KEY);
+  }
+}
+
+/**
+ * Check if we're in a Vercel preview environment.
+ */
+function isPreviewEnvironment(): boolean {
   if (typeof window === 'undefined') {
     return false;
   }
@@ -70,13 +95,29 @@ function defaultIsEnabled(): boolean {
     ? process.env?.NEXT_PUBLIC_VERCEL_ENV
     : undefined;
 
-  const isPreview = vercelEnv === 'preview' || nextPublicVercelEnv === 'preview';
+  return vercelEnv === 'preview' || nextPublicVercelEnv === 'preview';
+}
 
-  // Check for ?debug=1 in URL
+/**
+ * Default check for whether debug mode should be enabled.
+ * Requires VERCEL_ENV === 'preview' AND (?debug=1 in URL OR keyboard shortcut activated).
+ */
+function defaultIsEnabled(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  // Must be in preview environment
+  if (!isPreviewEnvironment()) {
+    return false;
+  }
+
+  // Check for ?debug=1 in URL OR keyboard activation
   const urlParams = new URLSearchParams(window.location.search);
   const hasDebugParam = urlParams.get('debug') === '1';
+  const hasKeyboardActivation = isKeyboardEnabled();
 
-  return isPreview && hasDebugParam;
+  return hasDebugParam || hasKeyboardActivation;
 }
 
 /**
@@ -296,6 +337,7 @@ export function initDebugCapture(config: DebugConfig = {}): DebugCaptureAPI | nu
     captureInfo: config.captureInfo ?? false,
     injectSessionHeader: config.injectSessionHeader ?? true,
     onlyFetchFailures: config.onlyFetchFailures ?? true,
+    serverUrl: config.serverUrl ?? 'http://localhost:3847',
   };
 
   // Check if we should enable debug mode
@@ -423,4 +465,66 @@ export function isDebugModeActive(): boolean {
  */
 export function getDebugSessionId(): string | null {
   return state?.sessionId || null;
+}
+
+/**
+ * Toggle debug mode via keyboard shortcut.
+ * Only works in preview environments.
+ * @returns The new enabled state, or null if toggle is not allowed
+ */
+export function toggleDebugMode(): boolean | null {
+  if (typeof window === 'undefined') return null;
+
+  // Verify preview environment
+  if (!isPreviewEnvironment()) {
+    console.warn('[debugpack] Cannot toggle debug mode outside preview environment');
+    return null;
+  }
+
+  const currentlyEnabled = isKeyboardEnabled();
+
+  if (currentlyEnabled) {
+    // Disable: clear storage and reload
+    setKeyboardEnabled(false);
+    console.log('[debugpack] Debug mode disabled. Reloading...');
+    window.location.reload();
+    return false;
+  } else {
+    // Enable: set storage and reload
+    setKeyboardEnabled(true);
+    console.log('[debugpack] Debug mode enabled. Reloading...');
+    window.location.reload();
+    return true;
+  }
+}
+
+/**
+ * Set up the keyboard shortcut listener (Ctrl+Shift+L or Cmd+Shift+L on Mac).
+ * Call this once at app startup (even before initDebugCapture).
+ * Safe to call multiple times - will only set up the listener once.
+ */
+export function setupKeyboardShortcut(): void {
+  if (typeof window === 'undefined') return;
+  if (keyboardShortcutSetup) return;
+
+  keyboardShortcutSetup = true;
+
+  window.addEventListener('keydown', (event: KeyboardEvent) => {
+    // Ctrl+Shift+L (or Cmd+Shift+L on Mac)
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const modifier = isMac ? event.metaKey : event.ctrlKey;
+
+    if (modifier && event.shiftKey && event.key.toUpperCase() === 'L') {
+      event.preventDefault();
+      toggleDebugMode();
+    }
+  });
+}
+
+/**
+ * Check if debug mode is keyboard-enabled (without checking preview environment).
+ * Useful for UI indicators.
+ */
+export function isDebugKeyboardEnabled(): boolean {
+  return isKeyboardEnabled();
 }
