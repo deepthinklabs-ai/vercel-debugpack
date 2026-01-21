@@ -36,9 +36,7 @@ npm install vercel-debugpack
 
 ## Browser Setup
 
-Add the `<DebugPanel />` component to your root layout. It only renders on staging (`VERCEL_ENV === 'preview'`) when debug mode is enabled via:
-- `?debug=1` in the URL, or
-- **Ctrl+Shift+L** keyboard shortcut (Cmd+Shift+L on Mac)
+Add the `<DebugPanel />` component to your root layout. It only renders on staging (`VERCEL_ENV === 'preview'`) when debug mode is enabled via **Ctrl+Shift+L** keyboard shortcut (Cmd+Shift+L on Mac).
 
 ### Next.js App Router
 
@@ -264,7 +262,7 @@ This lets you trace a bug from browser to server across the same session.
 
 ## Security
 
-- Debug mode only activates on Vercel Preview deployments with `?debug=1` or Ctrl+Shift+L
+- Debug mode only activates on Vercel Preview deployments with Ctrl+Shift+L keyboard shortcut
 - No sensitive data (cookies, auth headers, request bodies) is captured
 - URLs are sanitized (query params stripped)
 - The CLI redacts tokens and secrets before writing files

@@ -100,7 +100,7 @@ function isPreviewEnvironment(): boolean {
 
 /**
  * Default check for whether debug mode should be enabled.
- * Requires VERCEL_ENV === 'preview' AND (?debug=1 in URL OR keyboard shortcut activated).
+ * Requires VERCEL_ENV === 'preview' AND keyboard shortcut activated (Ctrl+Shift+L).
  */
 function defaultIsEnabled(): boolean {
   if (typeof window === 'undefined') {
@@ -112,12 +112,8 @@ function defaultIsEnabled(): boolean {
     return false;
   }
 
-  // Check for ?debug=1 in URL OR keyboard activation
-  const urlParams = new URLSearchParams(window.location.search);
-  const hasDebugParam = urlParams.get('debug') === '1';
-  const hasKeyboardActivation = isKeyboardEnabled();
-
-  return hasDebugParam || hasKeyboardActivation;
+  // Only keyboard activation enables debug mode
+  return isKeyboardEnabled();
 }
 
 /**
@@ -222,7 +218,7 @@ function wrapConsole(): void {
 function wrapFetch(): void {
   if (!state || typeof window === 'undefined') return;
 
-  state.originalFetch = window.fetch;
+  state.originalFetch = window.fetch.bind(window);
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const startTime = Date.now();
