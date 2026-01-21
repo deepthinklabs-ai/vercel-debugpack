@@ -28,17 +28,6 @@ On-demand debug bundle generation for Vercel + Chrome. Stop copy-pasting console
    claude --dir ./debug-bundle
    ```
 
-### Manual Workflow (Alternative)
-
-1. Open your staging site with `?debug=1`
-2. Reproduce the bug
-3. Click **Download Logs** (downloads `browser-logs.jsonl`)
-4. Run the CLI to bundle everything:
-   ```bash
-   npx debugpack --browserLog ~/Downloads/browser-logs.jsonl --project my-vercel-app
-   ```
-5. Point Claude Code at the `./debug-bundle/` folder
-
 ## Installation
 
 ```bash
@@ -186,29 +175,6 @@ This starts a local server that the browser can connect to. When you click "Crea
 | `--project <name>` | Vercel project name | from config |
 | `--minutes <n>` | Minutes of Vercel logs | `15` |
 
-### Manual Bundle (Alternative)
-
-If you prefer not to use the server, you can manually download logs and run:
-
-```bash
-npx debugpack --browserLog ./browser-logs.jsonl --project my-vercel-app
-```
-
-#### Manual Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--browserLog <path>` | Path to browser-logs.jsonl file | **Required** |
-| `--project <name>` | Vercel project name | — |
-| `--deployment <url>` | Specific deployment URL | — |
-| `--env <env>` | Environment name for context | `staging` |
-| `--minutes <n>` | Minutes of logs to include | `15` |
-| `--stagingUrl <url>` | Staging URL for context | — |
-| `--out <dir>` | Output directory | `./debug-bundle` |
-| `--sessionId <id>` | Override debug session ID | — |
-
-Either `--project` or `--deployment` is required.
-
 ### Output
 
 ```
@@ -218,24 +184,6 @@ debug-bundle/
 ├── vercel-logs.txt      # Server-side logs from Vercel
 ├── summary.md           # Human-readable summary
 └── redaction_report.json # What sensitive data was redacted
-```
-
-### npm Script
-
-Add to your `package.json` for convenience:
-
-```json
-{
-  "scripts": {
-    "debugpack": "debugpack --project my-app --stagingUrl https://staging.myapp.com"
-  }
-}
-```
-
-Then run:
-
-```bash
-npm run debugpack -- --browserLog ~/Downloads/browser-logs.jsonl
 ```
 
 ## What Gets Captured
