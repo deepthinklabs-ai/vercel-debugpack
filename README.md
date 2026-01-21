@@ -4,16 +4,40 @@ On-demand debug bundle generation for Vercel + Chrome. Stop copy-pasting console
 
 ## How It Works
 
+### Quick Start (Recommended)
+
+1. **Setup once** in your project directory:
+   ```bash
+   npx debugpack init
+   ```
+   This prompts for your Vercel project name and saves config.
+
+2. **Start the debug server** when you need to debug:
+   ```bash
+   npx debugpack serve
+   ```
+
+3. **On your staging site**, press **Ctrl+Shift+L** (or Cmd+Shift+L on Mac) to enable debug mode
+
+4. **Reproduce the bug**
+
+5. **Click "Create Bundle"** in the debug panel — bundle is written directly to `./debug-bundle/`
+
+6. **Point Claude Code** (or any AI) at the folder:
+   ```bash
+   claude --dir ./debug-bundle
+   ```
+
+### Manual Workflow (Alternative)
+
 1. Open your staging site with `?debug=1`
 2. Reproduce the bug
-3. Click **Download Browser Logs** (downloads `browser-logs.jsonl`)
+3. Click **Download Logs** (downloads `browser-logs.jsonl`)
 4. Run the CLI to bundle everything:
-
-```bash
-npx debugpack --browserLog ~/Downloads/browser-logs.jsonl --project my-vercel-app
-```
-
-5. Point Claude Code (or any AI) at the `./debug-bundle/` folder
+   ```bash
+   npx debugpack --browserLog ~/Downloads/browser-logs.jsonl --project my-vercel-app
+   ```
+5. Point Claude Code at the `./debug-bundle/` folder
 
 ## Installation
 
@@ -23,7 +47,9 @@ npm install vercel-debugpack
 
 ## Browser Setup
 
-Add the `<DebugPanel />` component to your root layout. It only renders on staging (`VERCEL_ENV === 'preview'`) when `?debug=1` is in the URL.
+Add the `<DebugPanel />` component to your root layout. It only renders on staging (`VERCEL_ENV === 'preview'`) when debug mode is enabled via:
+- `?debug=1` in the URL, or
+- **Ctrl+Shift+L** keyboard shortcut (Cmd+Shift+L on Mac)
 
 ### Next.js App Router
 
@@ -126,13 +152,49 @@ The CLI bundles browser logs with Vercel server logs into a single debug folder.
 
 - [Vercel CLI](https://vercel.com/docs/cli) installed and authenticated (`vercel login`)
 
-### Basic Usage
+### Initialize (First Time Setup)
+
+Run this once in your project directory:
+
+```bash
+npx debugpack init
+```
+
+This will prompt you for:
+- **Vercel project name** — your project name from the Vercel dashboard
+- **Output directory** — where to save debug bundles (default: `./debug-bundle`)
+
+Configuration is saved to `debugpack.config.json` and automatically added to `.gitignore`.
+
+### Start Debug Server
+
+```bash
+npx debugpack serve
+```
+
+This starts a local server that the browser can connect to. When you click "Create Bundle" in the DebugPanel, it:
+1. Sends browser logs to the local server
+2. Fetches Vercel server logs automatically
+3. Writes the complete bundle to your output directory
+
+#### Serve Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--port <number>` | Server port | `3847` |
+| `--out <dir>` | Output directory | from config or `./debug-bundle` |
+| `--project <name>` | Vercel project name | from config |
+| `--minutes <n>` | Minutes of Vercel logs | `15` |
+
+### Manual Bundle (Alternative)
+
+If you prefer not to use the server, you can manually download logs and run:
 
 ```bash
 npx debugpack --browserLog ./browser-logs.jsonl --project my-vercel-app
 ```
 
-### All Options
+#### Manual Options
 
 | Option | Description | Default |
 |--------|-------------|---------|
@@ -256,11 +318,11 @@ This lets you trace a bug from browser to server across the same session.
 
 ## Security
 
-- Debug mode only activates on Vercel Preview deployments with `?debug=1`
+- Debug mode only activates on Vercel Preview deployments with `?debug=1` or Ctrl+Shift+L
 - No sensitive data (cookies, auth headers, request bodies) is captured
 - URLs are sanitized (query params stripped)
 - The CLI redacts tokens and secrets before writing files
-- `debug-bundle/` is added to `.gitignore` by default
+- `debug-bundle/` and `debugpack.config.json` are automatically added to `.gitignore`
 
 ## License
 
