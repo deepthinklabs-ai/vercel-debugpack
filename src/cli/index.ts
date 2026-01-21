@@ -352,7 +352,7 @@ export function main(): void {
     .name('debugpack')
     .description('Generate debug bundles from browser logs + Vercel logs')
     .version('0.1.0')
-    .requiredOption('--browserLog <path>', 'Path to browser-logs.jsonl file')
+    .option('--browserLog <path>', 'Path to browser-logs.jsonl file')
     .option('--project <name>', 'Vercel project name')
     .option('--deployment <url>', 'Specific Vercel deployment URL')
     .option('--env <env>', 'Environment name', 'staging')
@@ -361,7 +361,7 @@ export function main(): void {
     .option('--out <dir>', 'Output directory', './debug-bundle')
     .option('--sessionId <id>', 'Override debug session ID')
     .action(async (options: {
-      browserLog: string;
+      browserLog?: string;
       project?: string;
       deployment?: string;
       env: string;
@@ -382,6 +382,17 @@ export function main(): void {
       } = options;
 
       const minutes = parseInt(minutesStr, 10);
+
+      // Validate browserLog is provided for manual bundle command
+      if (!browserLog) {
+        console.error('Error: --browserLog <path> is required for manual bundle creation');
+        console.error('\nUsage:');
+        console.error('  npx debugpack --browserLog ./browser-logs.jsonl --project my-app');
+        console.error('\nOr use the server workflow:');
+        console.error('  npx debugpack init    # First time setup');
+        console.error('  npx debugpack serve   # Start debug server');
+        process.exit(1);
+      }
 
       // Validate inputs
       if (!project && !deployment) {
