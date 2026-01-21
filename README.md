@@ -149,11 +149,9 @@ Run this once in your project directory:
 npx debugpack init
 ```
 
-This will prompt you for:
-- **Vercel project name** — your project name from the Vercel dashboard
-- **Output directory** — where to save debug bundles (default: `./debug-bundle`)
+This will prompt you for your **Vercel project name** from the Vercel dashboard.
 
-Configuration is saved to `debugpack.config.json` and automatically added to `.gitignore`.
+Configuration is saved to `debugpack.config.json` and automatically added to `.gitignore`. Bundles are saved to `./debug-bundle/` by default.
 
 ### Start Debug Server
 
