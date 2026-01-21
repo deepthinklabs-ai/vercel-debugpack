@@ -557,12 +557,10 @@ export function main(): void {
       const projectInput = await question(projectPrompt);
       const project = projectInput.trim() || defaultProject;
 
-      // Prompt for output directory
-      const defaultOut = existingConfig.out || './debug-bundle';
-      const outInput = await question(`Output directory [${defaultOut}]: `);
-      const out = outInput.trim() || defaultOut;
-
       rl.close();
+
+      // Use current directory with ./debug-bundle as output
+      const out = './debug-bundle';
 
       // Save config
       const config = { project, out };
