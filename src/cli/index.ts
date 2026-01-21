@@ -554,6 +554,10 @@ export function main(): void {
       const projectPrompt = defaultProject
         ? `Vercel project name [${defaultProject}]: `
         : 'Vercel project name: ';
+
+      if (defaultProject) {
+        console.log('(Press Enter to keep the value in brackets)\n');
+      }
       const projectInput = await question(projectPrompt);
       const project = projectInput.trim() || defaultProject;
 
