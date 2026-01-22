@@ -108,18 +108,28 @@ export interface DebugConfig {
    * @default 'http://localhost:3847'
    */
   serverUrl?: string;
+
+  /**
+   * Keyboard shortcut key to toggle debug mode.
+   * Used with Ctrl+Shift (or Cmd+Shift on Mac).
+   *
+   * @default 'D'
+   * @example 'D' for Ctrl+Shift+D
+   * @example ';' for Ctrl+Shift+;
+   */
+  keyboardShortcutKey?: string;
 }
 
 /**
  * Internal state for the debug capture system.
- * Note: previewUrlPattern remains optional since it may not be set.
+ * Note: previewUrlPattern and keyboardShortcutKey are stored separately at module level.
  */
 export interface DebugCaptureState {
   initialized: boolean;
   enabled: boolean;
   sessionId: string;
   buffer: LogEntry[];
-  config: Required<Omit<DebugConfig, 'previewUrlPattern'>> & Pick<DebugConfig, 'previewUrlPattern'>;
+  config: Required<Omit<DebugConfig, 'previewUrlPattern' | 'keyboardShortcutKey'>> & Pick<DebugConfig, 'previewUrlPattern'>;
   originalConsoleError: typeof console.error;
   originalConsoleWarn: typeof console.warn;
   originalConsoleInfo: typeof console.info;

@@ -21,6 +21,9 @@ let customIsEnabled: (() => boolean) | null = null;
 /** Stored custom preview URL pattern from user config */
 let customPreviewUrlPattern: string | RegExp | ((hostname: string) => boolean) | null = null;
 
+/** Stored keyboard shortcut key (default: 'D') */
+let keyboardShortcutKey = 'D';
+
 /** Debug mode for verbose logging - enable via localStorage */
 function isVerboseDebug(): boolean {
   if (typeof localStorage === 'undefined') return false;
@@ -44,6 +47,18 @@ export function setPreviewUrlPattern(pattern: string | RegExp | ((hostname: stri
   if (pattern !== undefined) {
     customPreviewUrlPattern = pattern;
     debugLog('customPreviewUrlPattern set to:', typeof pattern === 'function' ? 'function' : pattern);
+  }
+}
+
+/**
+ * Set the keyboard shortcut key.
+ * Call this before setupKeyboardShortcut() to customize the activation key.
+ * @param key - The key to use with Ctrl+Shift (or Cmd+Shift on Mac). Default is 'D'.
+ */
+export function setKeyboardShortcutKey(key: string | undefined): void {
+  if (key) {
+    keyboardShortcutKey = key.toUpperCase();
+    debugLog('keyboardShortcutKey set to:', keyboardShortcutKey);
   }
 }
 
@@ -670,9 +685,10 @@ export function toggleDebugMode(): boolean | null {
 }
 
 /**
- * Set up the keyboard shortcut listener (Ctrl+Shift+L or Cmd+Shift+L on Mac).
+ * Set up the keyboard shortcut listener (Ctrl+Shift+D or Cmd+Shift+D on Mac by default).
  * Call this once at app startup (even before initDebugCapture).
  * Safe to call multiple times - will only set up the listener once.
+ * Use setKeyboardShortcutKey() before calling this to customize the key.
  */
 export function setupKeyboardShortcut(): void {
   debugLog('setupKeyboardShortcut called');
@@ -688,17 +704,18 @@ export function setupKeyboardShortcut(): void {
   }
 
   keyboardShortcutSetup = true;
-  debugLog('Setting up keyboard shortcut listener');
-  console.log('[debugpack] Keyboard shortcut enabled (Ctrl+Shift+L / Cmd+Shift+L on Mac)');
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  const modifierName = isMac ? 'Cmd' : 'Ctrl';
+  debugLog('Setting up keyboard shortcut listener for key:', keyboardShortcutKey);
+  console.log(`[debugpack] Keyboard shortcut enabled (${modifierName}+Shift+${keyboardShortcutKey})`);
 
   window.addEventListener('keydown', (event: KeyboardEvent) => {
-    // Ctrl+Shift+L (or Cmd+Shift+L on Mac)
-    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    // Ctrl+Shift+<key> (or Cmd+Shift+<key> on Mac)
     const modifier = isMac ? event.metaKey : event.ctrlKey;
 
-    if (modifier && event.shiftKey && event.key.toUpperCase() === 'L') {
+    if (modifier && event.shiftKey && event.key.toUpperCase() === keyboardShortcutKey) {
       event.preventDefault();
-      console.log('[debugpack] Keyboard shortcut triggered');
+      console.log(`[debugpack] Keyboard shortcut triggered (${modifierName}+Shift+${keyboardShortcutKey})`);
       toggleDebugMode();
     }
   });
@@ -726,6 +743,7 @@ export function isDebugKeyboardEnabled(): boolean {
  */
 export function getDebugpackDiagnostics(): {
   keyboardShortcutSetup: boolean;
+  keyboardShortcutKey: string;
   isKeyboardEnabled: boolean;
   customPreviewUrlPattern: string | null;
   customIsEnabled: boolean;
@@ -739,6 +757,7 @@ export function getDebugpackDiagnostics(): {
 
   const diagnostics = {
     keyboardShortcutSetup,
+    keyboardShortcutKey,
     isKeyboardEnabled: isKeyboardEnabled(),
     customPreviewUrlPattern: customPreviewUrlPattern
       ? (typeof customPreviewUrlPattern === 'function' ? '[Function]' : String(customPreviewUrlPattern))

@@ -17,7 +17,7 @@ On-demand debug bundle generation for Vercel + Chrome. Stop copy-pasting console
    npx debugpack serve
    ```
 
-3. **On your staging site**, press **Ctrl+Shift+L** (or Cmd+Shift+L on Mac) to enable debug mode
+3. **On your staging site**, press **Ctrl+Shift+D** (or Cmd+Shift+D on Mac) to enable debug mode
 
 4. **Reproduce the bug**
 
@@ -36,7 +36,7 @@ npm install vercel-debugpack
 
 ## Browser Setup
 
-Add the `<DebugPanel />` component to your root layout. It only renders on preview deployments when debug mode is enabled via **Ctrl+Shift+L** keyboard shortcut (Cmd+Shift+L on Mac).
+Add the `<DebugPanel />` component to your root layout. It only renders on preview deployments when debug mode is enabled via **Ctrl+Shift+D** keyboard shortcut (Cmd+Shift+D on Mac).
 
 ### Preview Environment Detection
 
@@ -232,6 +232,7 @@ The CLI automatically redacts:
     injectSessionHeader: true, // Add x-debug-session-id to fetch
     onlyFetchFailures: true,  // Only log failed fetches
     serverUrl: 'http://localhost:3847', // Local debug server URL
+    keyboardShortcutKey: 'D', // Key to use with Ctrl+Shift (default: 'D')
   }}
 />
 ```
@@ -301,7 +302,7 @@ This lets you trace a bug from browser to server across the same session.
 
 ## Security
 
-- Debug mode only activates on preview environments (auto-detected or via `previewUrlPattern`) with Ctrl+Shift+L keyboard shortcut
+- Debug mode only activates on preview environments (auto-detected or via `previewUrlPattern`) with Ctrl+Shift+D keyboard shortcut (configurable via `keyboardShortcutKey`)
 - No sensitive data (cookies, auth headers, request bodies) is captured
 - URLs are sanitized (query params stripped)
 - The CLI redacts tokens and secrets before writing files
