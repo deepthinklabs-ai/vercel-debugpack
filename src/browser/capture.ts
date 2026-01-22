@@ -713,7 +713,19 @@ export function setupKeyboardShortcut(): void {
     // Ctrl+Shift+<key> (or Cmd+Shift+<key> on Mac)
     const modifier = isMac ? event.metaKey : event.ctrlKey;
 
-    if (modifier && event.shiftKey && event.key.toUpperCase() === keyboardShortcutKey) {
+    // For semicolon, Shift changes ';' to ':' so we need to check both
+    // Also use event.code as fallback for more reliable key detection
+    const pressedKey = event.key.toUpperCase();
+    const pressedCode = event.code;
+
+    let keyMatches = pressedKey === keyboardShortcutKey.toUpperCase();
+
+    // Special handling for semicolon - Shift+; produces ':'
+    if (keyboardShortcutKey === ';' && (pressedKey === ':' || pressedCode === 'Semicolon')) {
+      keyMatches = true;
+    }
+
+    if (modifier && event.shiftKey && keyMatches) {
       event.preventDefault();
       console.log(`[debugpack] Keyboard shortcut triggered (${modifierName}+Shift+${keyboardShortcutKey})`);
       toggleDebugMode();
