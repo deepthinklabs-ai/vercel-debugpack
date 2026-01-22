@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import type { DebugPanelProps, BundleStatus } from './types';
-import { initDebugCapture, getDebugCapture, setupKeyboardShortcut, type DebugCaptureAPI } from './capture';
+import { initDebugCapture, getDebugCapture, setupKeyboardShortcut, setPreviewUrlPattern, type DebugCaptureAPI } from './capture';
 import { probeServer, refreshServerStatus, createBundleOnServer, type ServerStatus } from './serverClient';
 
 const POSITION_STYLES: Record<NonNullable<DebugPanelProps['position']>, React.CSSProperties> = {
@@ -59,9 +59,11 @@ export function DebugPanel({
   const [bundleStatus, setBundleStatus] = useState<BundleStatus>({ state: 'idle' });
 
   // Setup keyboard shortcut (Ctrl+Shift+L) on mount
+  // Set preview URL pattern BEFORE keyboard shortcut so toggle can detect custom domains
   useEffect(() => {
+    setPreviewUrlPattern(config?.previewUrlPattern);
     setupKeyboardShortcut();
-  }, []);
+  }, [config?.previewUrlPattern]);
 
   // Initialize capture on mount
   useEffect(() => {

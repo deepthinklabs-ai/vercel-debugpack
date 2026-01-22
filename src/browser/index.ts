@@ -36,6 +36,7 @@ export {
   getDebugSessionId,
   toggleDebugMode,
   setupKeyboardShortcut,
+  setPreviewUrlPattern,
   isDebugKeyboardEnabled,
   type DebugCaptureAPI,
 } from './capture';

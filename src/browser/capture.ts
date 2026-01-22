@@ -22,6 +22,17 @@ let customIsEnabled: (() => boolean) | null = null;
 let customPreviewUrlPattern: string | RegExp | ((hostname: string) => boolean) | null = null;
 
 /**
+ * Set the custom preview URL pattern.
+ * Call this before setupKeyboardShortcut() to ensure the keyboard shortcut
+ * can correctly detect preview environments with custom domains.
+ */
+export function setPreviewUrlPattern(pattern: string | RegExp | ((hostname: string) => boolean) | undefined): void {
+  if (pattern) {
+    customPreviewUrlPattern = pattern;
+  }
+}
+
+/**
  * Generate a UUID v4 for debug session identification.
  */
 function generateSessionId(): string {
