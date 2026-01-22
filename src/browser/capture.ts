@@ -15,6 +15,9 @@ const DEBUG_KEYBOARD_KEY = 'vercel-debugpack-keyboard-enabled';
 /** Flag to prevent multiple keyboard shortcut listeners */
 let keyboardShortcutSetup = false;
 
+/** Stored custom isEnabled function from user config (used by toggleDebugMode) */
+let customIsEnabled: (() => boolean) | null = null;
+
 /**
  * Generate a UUID v4 for debug session identification.
  */
@@ -80,22 +83,64 @@ function setKeyboardEnabled(enabled: boolean): void {
 
 /**
  * Check if we're in a Vercel preview environment.
+ * Supports multiple detection methods for compatibility with:
+ * - Next.js Pages Router (via __NEXT_DATA__)
+ * - Next.js App Router (via NEXT_PUBLIC_VERCEL_ENV or URL detection)
+ * - Other frameworks on Vercel
  */
 function isPreviewEnvironment(): boolean {
   if (typeof window === 'undefined') {
     return false;
   }
 
-  // Check Vercel environment (must be preview/staging)
-  const vercelEnv = (typeof process !== 'undefined' && process.env?.VERCEL_ENV)
-    || (typeof window !== 'undefined' && (window as unknown as { __NEXT_DATA__?: { env?: { VERCEL_ENV?: string } } }).__NEXT_DATA__?.env?.VERCEL_ENV);
-
-  // Also check for NEXT_PUBLIC_VERCEL_ENV which is available client-side
+  // Method 1: Check NEXT_PUBLIC_VERCEL_ENV (works in App Router if user sets it)
+  // Users can set NEXT_PUBLIC_VERCEL_ENV=$VERCEL_ENV in Vercel project settings
   const nextPublicVercelEnv = typeof process !== 'undefined'
     ? process.env?.NEXT_PUBLIC_VERCEL_ENV
     : undefined;
+  if (nextPublicVercelEnv === 'preview') {
+    return true;
+  }
 
-  return vercelEnv === 'preview' || nextPublicVercelEnv === 'preview';
+  // Method 2: Check window.__NEXT_DATA__ (Pages Router only)
+  const nextData = (window as unknown as { __NEXT_DATA__?: { env?: { VERCEL_ENV?: string } } }).__NEXT_DATA__;
+  if (nextData?.env?.VERCEL_ENV === 'preview') {
+    return true;
+  }
+
+  // Method 3: Check for custom injected global (for App Router users)
+  // Users can add: window.__VERCEL_ENV__ = 'preview' in their layout
+  const injectedEnv = (window as unknown as { __VERCEL_ENV__?: string }).__VERCEL_ENV__;
+  if (injectedEnv === 'preview') {
+    return true;
+  }
+
+  // Method 4: URL-based detection for Vercel preview deployments
+  // Preview URLs follow pattern: <project>-<hash>-<scope>.vercel.app
+  // or custom preview domains, but NOT production domains
+  const hostname = window.location.hostname;
+
+  // Check for Vercel preview URL pattern (has hash in subdomain)
+  // Production is typically: <project>.vercel.app or custom domain
+  // Preview is typically: <project>-<hash>-<scope>.vercel.app
+  if (hostname.endsWith('.vercel.app')) {
+    // Count dashes in the subdomain part
+    const subdomain = hostname.replace('.vercel.app', '');
+    const dashCount = (subdomain.match(/-/g) || []).length;
+    // Preview URLs typically have 2+ dashes (project-hash-scope)
+    // Production URLs typically have 0-1 dashes (project or project-name)
+    if (dashCount >= 2) {
+      return true;
+    }
+  }
+
+  // Method 5: Legacy process.env check (may work in some bundler configs)
+  const processVercelEnv = typeof process !== 'undefined' ? process.env?.VERCEL_ENV : undefined;
+  if (processVercelEnv === 'preview') {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -324,6 +369,11 @@ export function initDebugCapture(config: DebugConfig = {}): DebugCaptureAPI | nu
     return createAPI();
   }
 
+  // Store custom isEnabled for use by toggleDebugMode
+  if (config.isEnabled) {
+    customIsEnabled = config.isEnabled;
+  }
+
   // Merge config with defaults
   const fullConfig: Required<DebugConfig> = {
     isEnabled: config.isEnabled || defaultIsEnabled,
@@ -465,13 +515,40 @@ export function getDebugSessionId(): string | null {
 
 /**
  * Toggle debug mode via keyboard shortcut.
- * Only works in preview environments.
+ * Respects custom config.isEnabled if provided, otherwise requires preview environment.
  * @returns The new enabled state, or null if toggle is not allowed
  */
 export function toggleDebugMode(): boolean | null {
   if (typeof window === 'undefined') return null;
 
-  // Verify preview environment
+  // Check if toggle should be allowed
+  // If user provided custom isEnabled, we check if enabling would be allowed
+  // by simulating keyboard enabled state and calling the function
+  if (customIsEnabled) {
+    // For disabling, always allow (user can always turn it off)
+    if (isKeyboardEnabled()) {
+      setKeyboardEnabled(false);
+      console.log('[debugpack] Debug mode disabled. Reloading...');
+      window.location.reload();
+      return false;
+    }
+
+    // For enabling, temporarily set keyboard enabled and check if custom isEnabled allows it
+    setKeyboardEnabled(true);
+    const wouldBeEnabled = customIsEnabled();
+    if (!wouldBeEnabled) {
+      // Custom check failed, revert and warn
+      setKeyboardEnabled(false);
+      console.warn('[debugpack] Cannot enable debug mode: custom isEnabled() returned false');
+      return null;
+    }
+
+    console.log('[debugpack] Debug mode enabled. Reloading...');
+    window.location.reload();
+    return true;
+  }
+
+  // No custom isEnabled - use default preview environment check
   if (!isPreviewEnvironment()) {
     console.warn('[debugpack] Cannot toggle debug mode outside preview environment');
     return null;

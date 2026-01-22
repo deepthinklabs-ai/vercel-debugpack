@@ -36,3 +36,4 @@ test/debug-bundle/
 test/cli-test-output/
 test/npm-test-output/
 .claude/
+CLAUDE.md

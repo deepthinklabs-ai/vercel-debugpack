@@ -6,7 +6,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import type { DebugPanelProps, BundleStatus } from './types';
 import { initDebugCapture, getDebugCapture, setupKeyboardShortcut, type DebugCaptureAPI } from './capture';
-import { probeServer, createBundleOnServer, type ServerStatus } from './serverClient';
+import { probeServer, refreshServerStatus, createBundleOnServer, type ServerStatus } from './serverClient';
 
 const POSITION_STYLES: Record<NonNullable<DebugPanelProps['position']>, React.CSSProperties> = {
   'bottom-right': { bottom: 16, right: 16 },
@@ -42,12 +42,20 @@ export function DebugPanel({
   const [api, setApi] = useState<DebugCaptureAPI | null>(null);
   const [logCount, setLogCount] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isPanelVisible, setIsPanelVisible] = useState(() => {
+    // Restore visibility state from sessionStorage
+    if (typeof sessionStorage !== 'undefined') {
+      return sessionStorage.getItem('vercel-debugpack-panel-visible') !== 'false';
+    }
+    return true;
+  });
 
   // Server integration state
   const [serverStatus, setServerStatus] = useState<ServerStatus>({
     available: false,
     lastChecked: 0,
   });
+  const [isProbing, setIsProbing] = useState(false);
   const [bundleStatus, setBundleStatus] = useState<BundleStatus>({ state: 'idle' });
 
   // Setup keyboard shortcut (Ctrl+Shift+L) on mount
@@ -79,13 +87,23 @@ export function DebugPanel({
   // Probe server on mount and periodically
   useEffect(() => {
     const checkServer = async () => {
+      setIsProbing(true);
       const status = await probeServer(config?.serverUrl);
       setServerStatus(status);
+      setIsProbing(false);
     };
 
     checkServer();
     const interval = setInterval(checkServer, 30000);
     return () => clearInterval(interval);
+  }, [config?.serverUrl]);
+
+  // Manual refresh server status (bypasses cache)
+  const handleRefreshServerStatus = useCallback(async () => {
+    setIsProbing(true);
+    const status = await refreshServerStatus(config?.serverUrl);
+    setServerStatus(status);
+    setIsProbing(false);
   }, [config?.serverUrl]);
 
   const handleDownload = useCallback(() => {
@@ -100,6 +118,16 @@ export function DebugPanel({
 
   const toggleMinimize = useCallback(() => {
     setIsMinimized((prev) => !prev);
+  }, []);
+
+  const togglePanelVisibility = useCallback(() => {
+    setIsPanelVisible((prev) => {
+      const newValue = !prev;
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('vercel-debugpack-panel-visible', String(newValue));
+      }
+      return newValue;
+    });
   }, []);
 
   // Handle bundle creation via local server
@@ -138,6 +166,45 @@ export function DebugPanel({
   // Don't render anything if debug mode is not active
   if (!api) {
     return null;
+  }
+
+  // If panel is hidden, show a small floating indicator
+  if (!isPanelVisible) {
+    const hiddenIndicatorStyle: React.CSSProperties = {
+      position: 'fixed',
+      ...POSITION_STYLES[position],
+      zIndex: 99999,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      color: '#fff',
+      borderRadius: 20,
+      padding: '6px 12px',
+      fontSize: 11,
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+    };
+
+    const hiddenDotStyle: React.CSSProperties = {
+      width: 6,
+      height: 6,
+      borderRadius: '50%',
+      backgroundColor: '#22c55e',
+    };
+
+    return (
+      <div
+        style={hiddenIndicatorStyle}
+        className={className}
+        onClick={togglePanelVisibility}
+        title="Show debug panel"
+      >
+        <span style={hiddenDotStyle} />
+        <span>Debug ({logCount})</span>
+      </div>
+    );
   }
 
   const positionStyle = POSITION_STYLES[position];
@@ -244,6 +311,23 @@ export function DebugPanel({
     lineHeight: 1,
   };
 
+  const hideButtonStyle: React.CSSProperties = {
+    background: 'none',
+    border: 'none',
+    color: 'rgba(255, 255, 255, 0.4)',
+    cursor: 'pointer',
+    padding: 0,
+    fontSize: 12,
+    lineHeight: 1,
+    marginLeft: 4,
+  };
+
+  const headerButtonsStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
+  };
+
   const statusMessageStyle: React.CSSProperties = {
     marginTop: 8,
     padding: '6px 8px',
@@ -273,6 +357,19 @@ export function DebugPanel({
     fontSize: 10,
     color: serverStatus.available ? '#86efac' : 'rgba(255, 255, 255, 0.4)',
     marginTop: 2,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+  };
+
+  const refreshButtonStyle: React.CSSProperties = {
+    background: 'none',
+    border: 'none',
+    color: 'rgba(255, 255, 255, 0.5)',
+    cursor: isProbing ? 'default' : 'pointer',
+    padding: 0,
+    fontSize: 10,
+    opacity: isProbing ? 0.5 : 1,
   };
 
   // Render bundle status message
@@ -356,17 +453,31 @@ export function DebugPanel({
               <span>Debug</span>
               <span style={{ color: 'rgba(255, 255, 255, 0.6)' }}>({logCount})</span>
             </div>
-            <button
-              type="button"
-              style={minimizeButtonStyle}
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleMinimize();
-              }}
-              aria-label="Expand"
-            >
-              +
-            </button>
+            <div style={headerButtonsStyle}>
+              <button
+                type="button"
+                style={minimizeButtonStyle}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleMinimize();
+                }}
+                aria-label="Expand"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                style={hideButtonStyle}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePanelVisibility();
+                }}
+                aria-label="Hide panel"
+                title="Hide panel (capture continues)"
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -389,26 +500,53 @@ export function DebugPanel({
             <span style={statusDotStyle} />
             <span>Debug capture ON</span>
           </div>
-          <button
-            type="button"
-            style={minimizeButtonStyle}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMinimize();
-            }}
-            aria-label="Minimize"
-          >
-            -
-          </button>
+          <div style={headerButtonsStyle}>
+            <button
+              type="button"
+              style={minimizeButtonStyle}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleMinimize();
+              }}
+              aria-label="Minimize"
+            >
+              -
+            </button>
+            <button
+              type="button"
+              style={hideButtonStyle}
+              onClick={(e) => {
+                e.stopPropagation();
+                togglePanelVisibility();
+              }}
+              aria-label="Hide panel"
+              title="Hide panel (capture continues)"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <div style={sessionIdStyle}>
           Session: {api.getSessionId().slice(0, 8)}...
         </div>
         <div style={serverIndicatorStyle}>
-          {serverStatus.available
-            ? `Server: connected${serverStatus.projectName ? ` (${serverStatus.projectName})` : ''}`
-            : 'Server: not connected'}
+          <span>
+            {isProbing
+              ? 'Server: checking...'
+              : serverStatus.available
+                ? `Server: connected${serverStatus.projectName ? ` (${serverStatus.projectName})` : ''}`
+                : 'Server: not connected'}
+          </span>
+          <button
+            type="button"
+            style={refreshButtonStyle}
+            onClick={handleRefreshServerStatus}
+            disabled={isProbing}
+            title="Refresh server status"
+          >
+            {isProbing ? '...' : '↻'}
+          </button>
         </div>
         {serverStatus.available && serverStatus.outputDir && (
           <div style={{ ...serverIndicatorStyle, marginTop: 1, opacity: 0.8 }}>
