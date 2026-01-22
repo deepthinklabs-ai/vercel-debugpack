@@ -113,9 +113,9 @@ export interface DebugConfig {
    * Keyboard shortcut key to toggle debug mode.
    * Used with Ctrl+Shift (or Cmd+Shift on Mac).
    *
-   * @default 'D'
+   * @default ';'
+   * @example ';' for Ctrl+Shift+; (default)
    * @example 'D' for Ctrl+Shift+D
-   * @example ';' for Ctrl+Shift+;
    */
   keyboardShortcutKey?: string;
 }

@@ -21,8 +21,8 @@ let customIsEnabled: (() => boolean) | null = null;
 /** Stored custom preview URL pattern from user config */
 let customPreviewUrlPattern: string | RegExp | ((hostname: string) => boolean) | null = null;
 
-/** Stored keyboard shortcut key (default: 'D') */
-let keyboardShortcutKey = 'D';
+/** Stored keyboard shortcut key (default: ';') */
+let keyboardShortcutKey = ';';
 
 /** Debug mode for verbose logging - enable via localStorage */
 function isVerboseDebug(): boolean {
