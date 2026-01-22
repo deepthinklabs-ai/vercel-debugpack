@@ -752,8 +752,10 @@ export function setupKeyboardShortcut(): void {
     }
   };
 
-  window.addEventListener('keydown', handler);
-  console.log('[debugpack] Event listener added to window');
+  // Use document instead of window - more reliable for keyboard events
+  // (window.addEventListener doesn't work in some frameworks/environments)
+  document.addEventListener('keydown', handler);
+  console.log('[debugpack] Event listener added to document');
 }
 
 /**

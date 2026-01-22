@@ -39,6 +39,9 @@ export function DebugPanel({
   className,
   position = 'bottom-right',
 }: DebugPanelProps): React.ReactElement | null {
+  // Debug: Log when component function is called
+  console.log('[debugpack] DebugPanel component rendering');
+
   const [api, setApi] = useState<DebugCaptureAPI | null>(null);
   const [logCount, setLogCount] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -61,9 +64,11 @@ export function DebugPanel({
   // Setup keyboard shortcut on mount
   // Set config BEFORE keyboard shortcut so toggle can detect custom domains and use custom key
   useEffect(() => {
+    console.log('[debugpack] useEffect for keyboard shortcut running');
     setPreviewUrlPattern(config?.previewUrlPattern);
     setKeyboardShortcutKey(config?.keyboardShortcutKey);
     setupKeyboardShortcut();
+    console.log('[debugpack] useEffect for keyboard shortcut completed');
   }, [config?.previewUrlPattern, config?.keyboardShortcutKey]);
 
   // Initialize capture on mount
