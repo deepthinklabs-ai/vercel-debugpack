@@ -41,6 +41,29 @@ export interface DebugConfig {
   isEnabled?: () => boolean;
 
   /**
+   * Custom preview URL detection for environments with custom domains.
+   * Used by the default isEnabled check to detect preview environments.
+   *
+   * Can be:
+   * - A string: matches if hostname includes this string (e.g., 'preview.myapp.com')
+   * - A RegExp: matches if hostname matches the pattern (e.g., /preview-.*\.myapp\.com/)
+   * - A function: receives hostname, returns true if it's a preview environment
+   *
+   * @example
+   * // String - matches any hostname containing 'staging'
+   * previewUrlPattern: 'staging'
+   *
+   * @example
+   * // RegExp - matches preview-*.myapp.com
+   * previewUrlPattern: /^preview-.*\.myapp\.com$/
+   *
+   * @example
+   * // Function - custom logic
+   * previewUrlPattern: (hostname) => hostname.startsWith('preview-') || hostname.includes('-git-')
+   */
+  previewUrlPattern?: string | RegExp | ((hostname: string) => boolean);
+
+  /**
    * Maximum number of log entries to keep in the buffer.
    * Oldest entries are removed when this limit is reached.
    * @default 1000
@@ -89,13 +112,14 @@ export interface DebugConfig {
 
 /**
  * Internal state for the debug capture system.
+ * Note: previewUrlPattern remains optional since it may not be set.
  */
 export interface DebugCaptureState {
   initialized: boolean;
   enabled: boolean;
   sessionId: string;
   buffer: LogEntry[];
-  config: Required<DebugConfig>;
+  config: Required<Omit<DebugConfig, 'previewUrlPattern'>> & Pick<DebugConfig, 'previewUrlPattern'>;
   originalConsoleError: typeof console.error;
   originalConsoleWarn: typeof console.warn;
   originalConsoleInfo: typeof console.info;

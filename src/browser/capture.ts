@@ -18,6 +18,9 @@ let keyboardShortcutSetup = false;
 /** Stored custom isEnabled function from user config (used by toggleDebugMode) */
 let customIsEnabled: (() => boolean) | null = null;
 
+/** Stored custom preview URL pattern from user config */
+let customPreviewUrlPattern: string | RegExp | ((hostname: string) => boolean) | null = null;
+
 /**
  * Generate a UUID v4 for debug session identification.
  */
@@ -82,8 +85,32 @@ function setKeyboardEnabled(enabled: boolean): void {
 }
 
 /**
+ * Check if hostname matches the custom preview URL pattern.
+ */
+function matchesCustomPreviewPattern(hostname: string): boolean {
+  if (!customPreviewUrlPattern) {
+    return false;
+  }
+
+  if (typeof customPreviewUrlPattern === 'string') {
+    return hostname.includes(customPreviewUrlPattern);
+  }
+
+  if (customPreviewUrlPattern instanceof RegExp) {
+    return customPreviewUrlPattern.test(hostname);
+  }
+
+  if (typeof customPreviewUrlPattern === 'function') {
+    return customPreviewUrlPattern(hostname);
+  }
+
+  return false;
+}
+
+/**
  * Check if we're in a Vercel preview environment.
  * Supports multiple detection methods for compatibility with:
+ * - Custom preview URL patterns (via config.previewUrlPattern)
  * - Next.js Pages Router (via __NEXT_DATA__)
  * - Next.js App Router (via NEXT_PUBLIC_VERCEL_ENV or URL detection)
  * - Other frameworks on Vercel
@@ -91,6 +118,14 @@ function setKeyboardEnabled(enabled: boolean): void {
 function isPreviewEnvironment(): boolean {
   if (typeof window === 'undefined') {
     return false;
+  }
+
+  const hostname = window.location.hostname;
+
+  // Method 0: Check custom preview URL pattern (highest priority)
+  // This allows users to specify their own preview domain patterns
+  if (customPreviewUrlPattern && matchesCustomPreviewPattern(hostname)) {
+    return true;
   }
 
   // Method 1: Check NEXT_PUBLIC_VERCEL_ENV (works in App Router if user sets it)
@@ -118,8 +153,6 @@ function isPreviewEnvironment(): boolean {
   // Method 4: URL-based detection for Vercel preview deployments
   // Preview URLs follow pattern: <project>-<hash>-<scope>.vercel.app
   // or custom preview domains, but NOT production domains
-  const hostname = window.location.hostname;
-
   // Check for Vercel preview URL pattern (has hash in subdomain)
   // Production is typically: <project>.vercel.app or custom domain
   // Preview is typically: <project>-<hash>-<scope>.vercel.app
@@ -369,14 +402,18 @@ export function initDebugCapture(config: DebugConfig = {}): DebugCaptureAPI | nu
     return createAPI();
   }
 
-  // Store custom isEnabled for use by toggleDebugMode
+  // Store custom config values for use by toggleDebugMode and isPreviewEnvironment
   if (config.isEnabled) {
     customIsEnabled = config.isEnabled;
   }
+  if (config.previewUrlPattern) {
+    customPreviewUrlPattern = config.previewUrlPattern;
+  }
 
   // Merge config with defaults
-  const fullConfig: Required<DebugConfig> = {
+  const fullConfig = {
     isEnabled: config.isEnabled || defaultIsEnabled,
+    previewUrlPattern: config.previewUrlPattern,
     maxBufferSize: config.maxBufferSize ?? 1000,
     maxStringLength: config.maxStringLength ?? 5000,
     captureWarnings: config.captureWarnings ?? true,
