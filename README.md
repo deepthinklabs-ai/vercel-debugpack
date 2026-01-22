@@ -36,7 +36,16 @@ npm install vercel-debugpack
 
 ## Browser Setup
 
-Add the `<DebugPanel />` component to your root layout. It only renders on staging (`VERCEL_ENV === 'preview'`) when debug mode is enabled via **Ctrl+Shift+L** keyboard shortcut (Cmd+Shift+L on Mac).
+Add the `<DebugPanel />` component to your root layout. It only renders on preview deployments when debug mode is enabled via **Ctrl+Shift+L** keyboard shortcut (Cmd+Shift+L on Mac).
+
+### Preview Environment Detection
+
+The panel automatically detects Vercel preview environments using multiple methods:
+- `NEXT_PUBLIC_VERCEL_ENV` environment variable
+- `window.__NEXT_DATA__` (Pages Router)
+- URL pattern detection (`*-*-*.vercel.app` for Vercel previews)
+
+For custom domains or non-standard setups, use the `previewUrlPattern` config option (see [Configuration](#configuration)).
 
 ### Next.js App Router
 
@@ -222,11 +231,32 @@ The CLI automatically redacts:
     captureInfo: false,       // Capture console.info/debug
     injectSessionHeader: true, // Add x-debug-session-id to fetch
     onlyFetchFailures: true,  // Only log failed fetches
+    serverUrl: 'http://localhost:3847', // Local debug server URL
   }}
 />
 ```
 
+### Custom Preview URL Detection
+
+For projects with custom preview domains (not `*.vercel.app`), use `previewUrlPattern`:
+
+```tsx
+// String - matches if hostname includes the string
+<DebugPanel config={{ previewUrlPattern: 'staging.myapp.com' }} />
+
+// RegExp - matches if hostname matches the pattern
+<DebugPanel config={{ previewUrlPattern: /^preview-.*\.myapp\.com$/ }} />
+
+// Function - custom logic
+<DebugPanel config={{
+  previewUrlPattern: (hostname) =>
+    hostname.includes('-git-') || hostname.startsWith('preview-')
+}} />
+```
+
 ### Custom Enable Logic
+
+For full control over when debug mode is allowed:
 
 ```tsx
 import { initDebugCapture } from 'vercel-debugpack/browser';
@@ -238,6 +268,15 @@ const debug = initDebugCapture({
   },
 });
 ```
+
+### Panel Visibility
+
+The debug panel has three states:
+- **Expanded**: Full panel with all controls
+- **Minimized**: Compact view showing log count (click `-` to minimize)
+- **Hidden**: Small floating indicator (click `×` to hide)
+
+When hidden, log capture continues in the background. Click the floating indicator to restore the panel. Panel visibility state persists across page refreshes.
 
 ## Log Format
 
@@ -262,11 +301,12 @@ This lets you trace a bug from browser to server across the same session.
 
 ## Security
 
-- Debug mode only activates on Vercel Preview deployments with Ctrl+Shift+L keyboard shortcut
+- Debug mode only activates on preview environments (auto-detected or via `previewUrlPattern`) with Ctrl+Shift+L keyboard shortcut
 - No sensitive data (cookies, auth headers, request bodies) is captured
 - URLs are sanitized (query params stripped)
 - The CLI redacts tokens and secrets before writing files
 - `debug-bundle/` and `debugpack.config.json` are automatically added to `.gitignore`
+- Server connection status can be manually refreshed via the ↻ button
 
 ## License
 
