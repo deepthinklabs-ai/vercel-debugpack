@@ -53,7 +53,7 @@ export function setPreviewUrlPattern(pattern: string | RegExp | ((hostname: stri
 /**
  * Set the keyboard shortcut key.
  * Call this before setupKeyboardShortcut() to customize the activation key.
- * @param key - The key to use with Ctrl+Shift (or Cmd+Shift on Mac). Default is 'D'.
+ * @param key - The key to use with Ctrl+Shift (or Cmd+Shift on Mac). Default is ';'.
  */
 export function setKeyboardShortcutKey(key: string | undefined): void {
   if (key) {
@@ -709,7 +709,17 @@ export function setupKeyboardShortcut(): void {
   debugLog('Setting up keyboard shortcut listener for key:', keyboardShortcutKey);
   console.log(`[debugpack] Keyboard shortcut enabled (${modifierName}+Shift+${keyboardShortcutKey})`);
 
-  window.addEventListener('keydown', (event: KeyboardEvent) => {
+  // Create a counter to show the handler is being called
+  let keydownCount = 0;
+
+  const handler = (event: KeyboardEvent) => {
+    keydownCount++;
+
+    // Debug: Log EVERY keydown event (first 5 only to avoid spam)
+    if (keydownCount <= 5) {
+      console.log(`[debugpack] Keydown #${keydownCount}: key="${event.key}" code="${event.code}" ctrl=${event.ctrlKey} meta=${event.metaKey} shift=${event.shiftKey}`);
+    }
+
     // Ctrl+Shift+<key> (or Cmd+Shift+<key> on Mac)
     const modifier = isMac ? event.metaKey : event.ctrlKey;
 
@@ -718,6 +728,11 @@ export function setupKeyboardShortcut(): void {
     const pressedKey = event.key.toUpperCase();
     const pressedCode = event.code;
 
+    // Debug: log when modifier keys are held (always log these, not just first 5)
+    if (modifier && event.shiftKey) {
+      console.log(`[debugpack] Keydown with ${modifierName}+Shift: key="${event.key}" code="${pressedCode}" ctrlKey=${event.ctrlKey} metaKey=${event.metaKey} target="${keyboardShortcutKey}"`);
+    }
+
     let keyMatches = pressedKey === keyboardShortcutKey.toUpperCase();
 
     // Special handling for semicolon - Shift+; produces ':'
@@ -725,12 +740,20 @@ export function setupKeyboardShortcut(): void {
       keyMatches = true;
     }
 
+    // Debug: log match result when modifiers are held
+    if (modifier && event.shiftKey) {
+      console.log(`[debugpack] Match check: keyMatches=${keyMatches} (pressedKey="${pressedKey}" targetKey="${keyboardShortcutKey.toUpperCase()}" pressedCode="${pressedCode}")`);
+    }
+
     if (modifier && event.shiftKey && keyMatches) {
       event.preventDefault();
       console.log(`[debugpack] Keyboard shortcut triggered (${modifierName}+Shift+${keyboardShortcutKey})`);
       toggleDebugMode();
     }
-  });
+  };
+
+  window.addEventListener('keydown', handler);
+  console.log('[debugpack] Event listener added to window');
 }
 
 /**
