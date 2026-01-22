@@ -38,6 +38,7 @@ export {
   setupKeyboardShortcut,
   setPreviewUrlPattern,
   isDebugKeyboardEnabled,
+  getDebugpackDiagnostics,
   type DebugCaptureAPI,
 } from './capture';
 

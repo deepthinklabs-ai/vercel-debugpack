@@ -21,14 +21,29 @@ let customIsEnabled: (() => boolean) | null = null;
 /** Stored custom preview URL pattern from user config */
 let customPreviewUrlPattern: string | RegExp | ((hostname: string) => boolean) | null = null;
 
+/** Debug mode for verbose logging - enable via localStorage */
+function isVerboseDebug(): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  return localStorage.getItem('vercel-debugpack-verbose') === 'true';
+}
+
+/** Log helper for debug messages */
+function debugLog(...args: unknown[]): void {
+  if (isVerboseDebug()) {
+    console.log('[debugpack:verbose]', ...args);
+  }
+}
+
 /**
  * Set the custom preview URL pattern.
  * Call this before setupKeyboardShortcut() to ensure the keyboard shortcut
  * can correctly detect preview environments with custom domains.
  */
 export function setPreviewUrlPattern(pattern: string | RegExp | ((hostname: string) => boolean) | undefined): void {
-  if (pattern) {
+  debugLog('setPreviewUrlPattern called with:', pattern ? (typeof pattern === 'function' ? 'function' : pattern) : 'undefined');
+  if (pattern !== undefined) {
     customPreviewUrlPattern = pattern;
+    debugLog('customPreviewUrlPattern set to:', typeof pattern === 'function' ? 'function' : pattern);
   }
 }
 
@@ -99,23 +114,28 @@ function setKeyboardEnabled(enabled: boolean): void {
  * Check if hostname matches the custom preview URL pattern.
  */
 function matchesCustomPreviewPattern(hostname: string): boolean {
+  debugLog('matchesCustomPreviewPattern called with hostname:', hostname);
+  debugLog('customPreviewUrlPattern is:', customPreviewUrlPattern ? (typeof customPreviewUrlPattern === 'function' ? 'function' : customPreviewUrlPattern) : 'null');
+
   if (!customPreviewUrlPattern) {
+    debugLog('No custom pattern set, returning false');
     return false;
   }
 
+  let result = false;
+
   if (typeof customPreviewUrlPattern === 'string') {
-    return hostname.includes(customPreviewUrlPattern);
+    result = hostname.includes(customPreviewUrlPattern);
+    debugLog('String pattern match result:', result);
+  } else if (customPreviewUrlPattern instanceof RegExp) {
+    result = customPreviewUrlPattern.test(hostname);
+    debugLog('RegExp pattern match result:', result);
+  } else if (typeof customPreviewUrlPattern === 'function') {
+    result = customPreviewUrlPattern(hostname);
+    debugLog('Function pattern match result:', result);
   }
 
-  if (customPreviewUrlPattern instanceof RegExp) {
-    return customPreviewUrlPattern.test(hostname);
-  }
-
-  if (typeof customPreviewUrlPattern === 'function') {
-    return customPreviewUrlPattern(hostname);
-  }
-
-  return false;
+  return result;
 }
 
 /**
@@ -127,15 +147,20 @@ function matchesCustomPreviewPattern(hostname: string): boolean {
  * - Other frameworks on Vercel
  */
 function isPreviewEnvironment(): boolean {
+  debugLog('isPreviewEnvironment called');
+
   if (typeof window === 'undefined') {
+    debugLog('window is undefined, returning false');
     return false;
   }
 
   const hostname = window.location.hostname;
+  debugLog('Current hostname:', hostname);
 
   // Method 0: Check custom preview URL pattern (highest priority)
   // This allows users to specify their own preview domain patterns
   if (customPreviewUrlPattern && matchesCustomPreviewPattern(hostname)) {
+    debugLog('Method 0 (custom pattern) matched!');
     return true;
   }
 
@@ -144,20 +169,26 @@ function isPreviewEnvironment(): boolean {
   const nextPublicVercelEnv = typeof process !== 'undefined'
     ? process.env?.NEXT_PUBLIC_VERCEL_ENV
     : undefined;
+  debugLog('Method 1 - NEXT_PUBLIC_VERCEL_ENV:', nextPublicVercelEnv);
   if (nextPublicVercelEnv === 'preview') {
+    debugLog('Method 1 matched!');
     return true;
   }
 
   // Method 2: Check window.__NEXT_DATA__ (Pages Router only)
   const nextData = (window as unknown as { __NEXT_DATA__?: { env?: { VERCEL_ENV?: string } } }).__NEXT_DATA__;
+  debugLog('Method 2 - __NEXT_DATA__.env.VERCEL_ENV:', nextData?.env?.VERCEL_ENV);
   if (nextData?.env?.VERCEL_ENV === 'preview') {
+    debugLog('Method 2 matched!');
     return true;
   }
 
   // Method 3: Check for custom injected global (for App Router users)
   // Users can add: window.__VERCEL_ENV__ = 'preview' in their layout
   const injectedEnv = (window as unknown as { __VERCEL_ENV__?: string }).__VERCEL_ENV__;
+  debugLog('Method 3 - window.__VERCEL_ENV__:', injectedEnv);
   if (injectedEnv === 'preview') {
+    debugLog('Method 3 matched!');
     return true;
   }
 
@@ -171,19 +202,24 @@ function isPreviewEnvironment(): boolean {
     // Count dashes in the subdomain part
     const subdomain = hostname.replace('.vercel.app', '');
     const dashCount = (subdomain.match(/-/g) || []).length;
+    debugLog('Method 4 - Vercel URL subdomain:', subdomain, 'dashCount:', dashCount);
     // Preview URLs typically have 2+ dashes (project-hash-scope)
     // Production URLs typically have 0-1 dashes (project or project-name)
     if (dashCount >= 2) {
+      debugLog('Method 4 matched!');
       return true;
     }
   }
 
   // Method 5: Legacy process.env check (may work in some bundler configs)
   const processVercelEnv = typeof process !== 'undefined' ? process.env?.VERCEL_ENV : undefined;
+  debugLog('Method 5 - process.env.VERCEL_ENV:', processVercelEnv);
   if (processVercelEnv === 'preview') {
+    debugLog('Method 5 matched!');
     return true;
   }
 
+  debugLog('No preview environment detected');
   return false;
 }
 
@@ -567,12 +603,21 @@ export function getDebugSessionId(): string | null {
  * @returns The new enabled state, or null if toggle is not allowed
  */
 export function toggleDebugMode(): boolean | null {
-  if (typeof window === 'undefined') return null;
+  debugLog('toggleDebugMode called');
+  debugLog('customIsEnabled is:', customIsEnabled ? 'function' : 'null');
+  debugLog('customPreviewUrlPattern is:', customPreviewUrlPattern ? (typeof customPreviewUrlPattern === 'function' ? 'function' : customPreviewUrlPattern) : 'null');
+  debugLog('isKeyboardEnabled():', isKeyboardEnabled());
+
+  if (typeof window === 'undefined') {
+    debugLog('window is undefined, returning null');
+    return null;
+  }
 
   // Check if toggle should be allowed
   // If user provided custom isEnabled, we check if enabling would be allowed
   // by simulating keyboard enabled state and calling the function
   if (customIsEnabled) {
+    debugLog('Using customIsEnabled path');
     // For disabling, always allow (user can always turn it off)
     if (isKeyboardEnabled()) {
       setKeyboardEnabled(false);
@@ -584,6 +629,7 @@ export function toggleDebugMode(): boolean | null {
     // For enabling, temporarily set keyboard enabled and check if custom isEnabled allows it
     setKeyboardEnabled(true);
     const wouldBeEnabled = customIsEnabled();
+    debugLog('customIsEnabled() returned:', wouldBeEnabled);
     if (!wouldBeEnabled) {
       // Custom check failed, revert and warn
       setKeyboardEnabled(false);
@@ -597,8 +643,12 @@ export function toggleDebugMode(): boolean | null {
   }
 
   // No custom isEnabled - use default preview environment check
-  if (!isPreviewEnvironment()) {
-    console.warn('[debugpack] Cannot toggle debug mode outside preview environment');
+  debugLog('Using default isPreviewEnvironment check');
+  const isPreview = isPreviewEnvironment();
+  debugLog('isPreviewEnvironment() returned:', isPreview);
+
+  if (!isPreview) {
+    console.warn('[debugpack] Cannot toggle debug mode outside preview environment. Enable verbose logging with: localStorage.setItem("vercel-debugpack-verbose", "true") and try again.');
     return null;
   }
 
@@ -625,10 +675,21 @@ export function toggleDebugMode(): boolean | null {
  * Safe to call multiple times - will only set up the listener once.
  */
 export function setupKeyboardShortcut(): void {
-  if (typeof window === 'undefined') return;
-  if (keyboardShortcutSetup) return;
+  debugLog('setupKeyboardShortcut called');
+
+  if (typeof window === 'undefined') {
+    debugLog('window is undefined, skipping keyboard shortcut setup');
+    return;
+  }
+
+  if (keyboardShortcutSetup) {
+    debugLog('Keyboard shortcut already set up, skipping');
+    return;
+  }
 
   keyboardShortcutSetup = true;
+  debugLog('Setting up keyboard shortcut listener');
+  console.log('[debugpack] Keyboard shortcut enabled (Ctrl+Shift+L / Cmd+Shift+L on Mac)');
 
   window.addEventListener('keydown', (event: KeyboardEvent) => {
     // Ctrl+Shift+L (or Cmd+Shift+L on Mac)
@@ -637,6 +698,7 @@ export function setupKeyboardShortcut(): void {
 
     if (modifier && event.shiftKey && event.key.toUpperCase() === 'L') {
       event.preventDefault();
+      console.log('[debugpack] Keyboard shortcut triggered');
       toggleDebugMode();
     }
   });
@@ -648,4 +710,56 @@ export function setupKeyboardShortcut(): void {
  */
 export function isDebugKeyboardEnabled(): boolean {
   return isKeyboardEnabled();
+}
+
+/**
+ * Diagnostic info for debugging configuration issues.
+ * Call this from the browser console to see current debugpack state.
+ *
+ * @example
+ * ```js
+ * // In browser console:
+ * import('vercel-debugpack/browser').then(m => console.log(m.getDebugpackDiagnostics()));
+ * // Or if already imported:
+ * window.__DEBUGPACK_DIAGNOSTICS__?.()
+ * ```
+ */
+export function getDebugpackDiagnostics(): {
+  keyboardShortcutSetup: boolean;
+  isKeyboardEnabled: boolean;
+  customPreviewUrlPattern: string | null;
+  customIsEnabled: boolean;
+  isPreviewEnvironment: boolean;
+  hostname: string;
+  stateInitialized: boolean;
+  stateEnabled: boolean;
+  sessionId: string | null;
+} {
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : 'N/A (no window)';
+
+  const diagnostics = {
+    keyboardShortcutSetup,
+    isKeyboardEnabled: isKeyboardEnabled(),
+    customPreviewUrlPattern: customPreviewUrlPattern
+      ? (typeof customPreviewUrlPattern === 'function' ? '[Function]' : String(customPreviewUrlPattern))
+      : null,
+    customIsEnabled: !!customIsEnabled,
+    isPreviewEnvironment: isPreviewEnvironment(),
+    hostname,
+    stateInitialized: !!state?.initialized,
+    stateEnabled: !!state?.enabled,
+    sessionId: state?.sessionId || null,
+  };
+
+  // Also expose as global for easy console access
+  if (typeof window !== 'undefined') {
+    (window as unknown as { __DEBUGPACK_DIAGNOSTICS__?: () => typeof diagnostics }).__DEBUGPACK_DIAGNOSTICS__ = () => diagnostics;
+  }
+
+  return diagnostics;
+}
+
+// Auto-expose diagnostics on load for easier debugging
+if (typeof window !== 'undefined') {
+  (window as unknown as { __DEBUGPACK_DIAGNOSTICS__?: () => ReturnType<typeof getDebugpackDiagnostics> }).__DEBUGPACK_DIAGNOSTICS__ = getDebugpackDiagnostics;
 }
