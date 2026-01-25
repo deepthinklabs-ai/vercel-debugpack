@@ -318,6 +318,16 @@ async function parseJsonBody<T>(req: http.IncomingMessage): Promise<T> {
   });
 }
 
+/**
+ * Generate a timestamp string for bundle directories.
+ * Format: YYYY-MM-DD_HHmmss (e.g., 2026-01-24_143052)
+ */
+function generateTimestamp(): string {
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
 async function handleBundleRequest(
   req: http.IncomingMessage,
   res: http.ServerResponse,
@@ -377,11 +387,18 @@ async function handleBundleRequest(
     // Generate summary
     const summary = generateSummary(redactedBrowserLogs, vercelLogs, context, body.sessionId);
 
-    // Create output directory
-    const outDir = path.resolve(config.outputDir);
-    if (!fs.existsSync(outDir)) {
-      fs.mkdirSync(outDir, { recursive: true });
+    // Create timestamped output directory to prevent overwrites
+    const baseOutDir = path.resolve(config.outputDir);
+    const timestamp = generateTimestamp();
+    const outDir = path.join(baseOutDir, timestamp);
+
+    // Ensure base directory exists
+    if (!fs.existsSync(baseOutDir)) {
+      fs.mkdirSync(baseOutDir, { recursive: true });
     }
+
+    // Create timestamped subdirectory
+    fs.mkdirSync(outDir, { recursive: true });
 
     // Write files
     console.log(`  Writing bundle to ${outDir}...`);
@@ -410,6 +427,26 @@ async function handleBundleRequest(
       path.join(outDir, 'redaction_report.json'),
       JSON.stringify(redactionReport, null, 2)
     );
+
+    // Create/update "latest" pointer for easy access
+    const latestPath = path.join(baseOutDir, 'latest');
+    try {
+      // Remove existing latest symlink/junction if it exists
+      if (fs.existsSync(latestPath)) {
+        fs.rmSync(latestPath, { recursive: true, force: true });
+      }
+      // On Windows, use 'junction' for directory symlinks
+      fs.symlinkSync(outDir, latestPath, 'junction');
+      console.log(`  Created "latest" link -> ${timestamp}`);
+    } catch (symlinkError) {
+      // Fallback: write a text file with the path if symlink fails
+      try {
+        fs.writeFileSync(latestPath + '.txt', outDir);
+        console.log(`  Created "latest.txt" pointer (symlinks not supported)`);
+      } catch {
+        // Ignore - not critical
+      }
+    }
 
     console.log(`  Bundle created successfully!`);
 
